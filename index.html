@@ -2,28 +2,50 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Telegram Bug Lab</title>
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 
 <body>
-    <h1>Telegram Bug Lab</h1>
 
-    <p>Страница работает!</p>
+<h1>Telegram Bug Lab</h1>
 
-    <p id="status">Проверяем Telegram...</p>
+<p id="status">Проверяем...</p>
 
-    <script>
-        const tg = window.Telegram?.WebApp;
+<h3>User</h3>
+<pre id="user"></pre>
 
-        if (tg) {
-            tg.ready();
+<h3>initData</h3>
+<pre id="init"></pre>
 
-            document.getElementById("status").textContent =
-                "Mini App работает внутри Telegram";
-        } else {
-            document.getElementById("status").textContent =
-                "Сейчас страница открыта не в Telegram";
-        }
-    </script>
+<script>
+    const tg = window.Telegram.WebApp;
+
+    tg.ready();
+    tg.expand();
+
+    const user = tg.initDataUnsafe?.user;
+
+    if (user) {
+
+        document.getElementById("status").textContent =
+            "✅ Telegram Mini App обнаружена";
+
+        document.getElementById("user").textContent =
+            JSON.stringify(user, null, 2);
+
+        document.getElementById("init").textContent =
+            tg.initData || "initData отсутствует";
+
+    } else {
+
+        document.getElementById("status").textContent =
+            "❌ Telegram user не получен";
+    }
+</script>
+
 </body>
 </html>
