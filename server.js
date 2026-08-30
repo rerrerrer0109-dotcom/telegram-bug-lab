@@ -2,7 +2,24 @@ const express = require("express");
 const crypto = require("crypto");
 
 const app = express();
+
 app.use(express.json());
+
+// CORS для нашей GitHub Pages Mini App
+app.use((req, res, next) => {
+  res.setHeader(
+    "Access-Control-Allow-Origin",
+    "https://rerrerrer0109-dotcom.github.io"
+  );
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 
