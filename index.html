@@ -11,9 +11,7 @@
 
     <title>Telegram InitData Lab</title>
 
-    <script
-        src="https://telegram.org/js/telegram-web-app.js">
-    </script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
     <style>
         body {
@@ -26,6 +24,7 @@
             margin: 10px 0;
             padding: 12px 18px;
             font-size: 16px;
+            cursor: pointer;
         }
 
         pre {
@@ -50,34 +49,32 @@
     Inspect current initData
 </button>
 
+<button id="copy">
+    Copy initData
+</button>
+
 <pre id="result">
 Нажми Inspect current initData
 </pre>
 
 <script>
 
-const tg =
-    window.Telegram.WebApp;
+const tg = window.Telegram.WebApp;
 
 tg.ready();
 tg.expand();
 
-document.getElementById(
-    "status"
-).textContent =
+const result =
+    document.getElementById("result");
+
+document.getElementById("status").textContent =
     tg.initData
         ? "✅ Telegram Mini App обнаружена"
         : "❌ initData отсутствует";
 
-document.getElementById(
-    "inspect"
-).onclick =
-    async () => {
 
-    const result =
-        document.getElementById(
-            "result"
-        );
+document.getElementById("inspect").onclick =
+    async () => {
 
     result.textContent =
         "Проверяем...";
@@ -118,6 +115,34 @@ document.getElementById(
         result.textContent =
             "❌ Ошибка: " +
             error.message;
+    }
+};
+
+
+document.getElementById("copy").onclick =
+    async () => {
+
+    if (!tg.initData) {
+
+        result.textContent =
+            "❌ initData отсутствует";
+
+        return;
+    }
+
+    try {
+
+        await navigator.clipboard.writeText(
+            tg.initData
+        );
+
+        result.textContent =
+            "✅ initData скопирована в буфер обмена";
+
+    } catch (error) {
+
+        result.textContent =
+            "❌ Не удалось скопировать initData";
     }
 };
 
