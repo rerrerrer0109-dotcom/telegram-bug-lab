@@ -1,4 +1,3 @@
-
 const express = require("express");
 const crypto = require("crypto");
 
@@ -60,6 +59,18 @@ function validateInitData(initData) {
   return calculatedHash === hash;
 }
 
+function fingerprint(value) {
+  if (!value) {
+    return null;
+  }
+
+  return crypto
+    .createHash("sha256")
+    .update(value)
+    .digest("hex")
+    .slice(0, 16);
+}
+
 app.post("/inspect", (req, res) => {
   const { initData } = req.body;
 
@@ -77,20 +88,14 @@ app.post("/inspect", (req, res) => {
     });
   }
 
-  const params = new URLSearchParams(initData);
+  const params =
+    new URLSearchParams(initData);
 
-  const authDate = Number(
-    params.get("auth_date")
-  );
+  const authDate =
+    Number(params.get("auth_date"));
 
-  const now = Math.floor(
-    Date.now() / 1000
-  );
-
-  const ageSeconds =
-    Number.isFinite(authDate)
-      ? now - authDate
-      : null;
+  const now =
+    Math.floor(Date.now() / 1000);
 
   const queryId =
     params.get("query_id");
@@ -101,17 +106,21 @@ app.post("/inspect", (req, res) => {
   res.json({
     ok: true,
 
-    auth_date: authDate || null,
+    auth_date:
+      Number.isFinite(authDate)
+        ? authDate
+        : null,
 
-    age_seconds: ageSeconds,
+    age_seconds:
+      Number.isFinite(authDate)
+        ? now - authDate
+        : null,
 
     query_id_present:
       Boolean(queryId),
 
-    query_id_preview:
-      queryId
-        ? queryId.slice(0, 6) + "..."
-        : null,
+    query_id_fingerprint:
+      fingerprint(queryId),
 
     start_param:
       startParam || null
