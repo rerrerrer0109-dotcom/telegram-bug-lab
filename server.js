@@ -30,6 +30,8 @@ app.use((req, res, next) => {
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 
+const MAX_AGE_SECONDS = 300;
+
 function validateInitData(initData) {
   const params = new URLSearchParams(initData);
 
@@ -88,14 +90,47 @@ app.post("/inspect", (req, res) => {
     });
   }
 
-  const params =
-    new URLSearchParams(initData);
+  const params = new URLSearchParams(initData);
 
-  const authDate =
-    Number(params.get("auth_date"));
+  const authDate = Number(
+    params.get("auth_date")
+  );
 
-  const now =
-    Math.floor(Date.now() / 1000);
+  const now = Math.floor(
+    Date.now() / 1000
+  );
+
+  if (
+    !Number.isFinite(authDate) ||
+    authDate <= 0
+  ) {
+    return res.status(401).json({
+      ok: false,
+      error: "invalid auth_date"
+    });
+  }
+
+  const ageSeconds =
+    now - authDate;
+
+  if (
+    ageSeconds > MAX_AGE_SECONDS
+  ) {
+    return res.status(401).json({
+      ok: false,
+      error: "initData expired",
+      age_seconds: ageSeconds
+    });
+  }
+
+  if (
+    authDate > now + 30
+  ) {
+    return res.status(401).json({
+      ok: false,
+      error: "auth_date is in the future"
+    });
+  }
 
   const queryId =
     params.get("query_id");
@@ -106,15 +141,10 @@ app.post("/inspect", (req, res) => {
   res.json({
     ok: true,
 
-    auth_date:
-      Number.isFinite(authDate)
-        ? authDate
-        : null,
+    auth_date: authDate,
 
     age_seconds:
-      Number.isFinite(authDate)
-        ? now - authDate
-        : null,
+      ageSeconds,
 
     query_id_present:
       Boolean(queryId),
