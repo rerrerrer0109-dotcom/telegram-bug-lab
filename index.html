@@ -1,15 +1,10 @@
 <!DOCTYPE html>
 <html lang="ru">
-
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <title>Telegram InitData Lab</title>
+    <title>Telegram Account Isolation Lab</title>
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
@@ -39,26 +34,27 @@
 
 <body>
 
-<h1>Telegram initData Lab</h1>
+<h1>Telegram Account Isolation Lab</h1>
 
-<p id="status">
-    Проверяем Telegram...
-</p>
+<p id="status">Проверяем Telegram...</p>
 
-<button id="inspect">
-    Inspect current initData
+<button id="write">
+    Write marker for current account
 </button>
 
-<button id="copy">
-    Copy initData
+<button id="read">
+    Read stored markers
+</button>
+
+<button id="clear">
+    Clear browser storage
 </button>
 
 <pre id="result">
-Нажми Inspect current initData
+Сначала нажми Write marker for current account
 </pre>
 
 <script>
-
 const tg = window.Telegram.WebApp;
 
 tg.ready();
@@ -67,83 +63,149 @@ tg.expand();
 const result =
     document.getElementById("result");
 
+const user =
+    tg.initDataUnsafe?.user;
+
 document.getElementById("status").textContent =
-    tg.initData
+    user
         ? "✅ Telegram Mini App обнаружена"
-        : "❌ initData отсутствует";
+        : "❌ Telegram user отсутствует";
 
 
-document.getElementById("inspect").onclick =
-    async () => {
+function accountFingerprint() {
+    if (!user?.id) {
+        return "UNKNOWN";
+    }
+
+    const text =
+        String(user.id);
+
+    return "ACC-" +
+        text.slice(-4);
+}
+
+
+function createMarker() {
+    return (
+        accountFingerprint() +
+        "-" +
+        Date.now() +
+        "-" +
+        Math.random()
+            .toString(36)
+            .slice(2, 10)
+    );
+}
+
+
+function getCookie(name) {
+    const cookies =
+        document.cookie.split(";");
+
+    for (const cookie of cookies) {
+        const [key, ...rest] =
+            cookie.trim().split("=");
+
+        if (key === name) {
+            return decodeURIComponent(
+                rest.join("=")
+            );
+        }
+    }
+
+    return null;
+}
+
+
+document.getElementById("write").onclick = () => {
+
+    const marker =
+        createMarker();
+
+    localStorage.setItem(
+        "tg_lab_marker",
+        marker
+    );
+
+    sessionStorage.setItem(
+        "tg_lab_marker",
+        marker
+    );
+
+    document.cookie =
+        "tg_lab_marker=" +
+        encodeURIComponent(marker) +
+        "; path=/; SameSite=Lax";
 
     result.textContent =
-        "Проверяем...";
+`
+✅ Marker written
 
-    try {
+Current account fingerprint:
+${accountFingerprint()}
 
-        const response =
-            await fetch(
-                "https://telegram-bug-lab.onrender.com/inspect",
-                {
-                    method: "POST",
+Marker:
+${marker}
 
-                    headers: {
-                        "Content-Type":
-                            "application/json"
-                    },
-
-                    body:
-                        JSON.stringify({
-                            initData:
-                                tg.initData
-                        })
-                }
-            );
-
-        const data =
-            await response.json();
-
-        result.textContent =
-            JSON.stringify(
-                data,
-                null,
-                2
-            );
-
-    } catch (error) {
-
-        result.textContent =
-            "❌ Ошибка: " +
-            error.message;
-    }
+Теперь:
+1. Закрой Mini App
+2. Переключись на другой Telegram-аккаунт
+3. Открой этот же Mini App
+4. НЕ нажимай Write
+5. Нажми Read stored markers
+`;
 };
 
 
-document.getElementById("copy").onclick =
-    async () => {
+document.getElementById("read").onclick = () => {
 
-    if (!tg.initData) {
-
-        result.textContent =
-            "❌ initData отсутствует";
-
-        return;
-    }
-
-    try {
-
-        await navigator.clipboard.writeText(
-            tg.initData
+    const local =
+        localStorage.getItem(
+            "tg_lab_marker"
         );
 
-        result.textContent =
-            "✅ initData скопирована в буфер обмена";
+    const session =
+        sessionStorage.getItem(
+            "tg_lab_marker"
+        );
 
-    } catch (error) {
+    const cookie =
+        getCookie(
+            "tg_lab_marker"
+        );
 
-        result.textContent =
-            "❌ Не удалось скопировать initData";
-    }
+    result.textContent =
+`
+Current account fingerprint:
+${accountFingerprint()}
+
+localStorage:
+${local ?? "NONE"}
+
+sessionStorage:
+${session ?? "NONE"}
+
+cookie:
+${cookie ?? "NONE"}
+`;
+};
+
+
+document.getElementById("clear").onclick = () => {
+
+    localStorage.removeItem(
+        "tg_lab_marker"
+    );
+
+    sessionStorage.removeItem(
+        "tg_lab_marker"
+    );
+
+    document.cookie =
+        "tg_lab_marker=; Max-Age=0; path=/";
+
+    result.textContent =
+        "✅ Storage cleared";
 };
 
 </script>
