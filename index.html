@@ -1,34 +1,46 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Telegram Security Lab</title>
+    <title>Telegram Start Param Lab</title>
 
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-<style>
-body {
-    font-family: Arial, sans-serif;
-    padding: 18px;
-}
-.box {
-    border: 1px solid #aaa;
-    padding: 12px;
-    margin: 10px 0;
-    word-break: break-all;
-}
-button {
-    padding: 12px;
-    margin: 5px;
-}
-</style>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 18px;
+        }
+
+        .box {
+            border: 1px solid #aaa;
+            padding: 12px;
+            margin: 10px 0;
+            word-break: break-all;
+        }
+
+        .ok {
+            font-weight: bold;
+        }
+
+        button {
+            padding: 12px 18px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        pre {
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+    </style>
 </head>
 
 <body>
 
-<h2>Telegram Security Lab</h2>
+<h2>Telegram Start Param Lab</h2>
 
 <div class="box">
     <b>Platform:</b>
@@ -36,42 +48,42 @@ button {
 </div>
 
 <div class="box">
-    <b>Version:</b>
+    <b>Telegram version:</b>
     <span id="version"></span>
 </div>
 
 <div class="box">
-    <b>User ID:</b>
-    <span id="userid"></span>
+    <b>Signed start_param:</b>
+    <div id="signedParam"></div>
+
+    <br>
+
+    <b>Length:</b>
+    <span id="signedLength"></span>
 </div>
 
 <div class="box">
-    <b>query_id:</b>
-    <span id="queryid"></span>
+    <b>URL tgWebAppStartParam:</b>
+    <div id="urlParam"></div>
+
+    <br>
+
+    <b>Length:</b>
+    <span id="urlLength"></span>
 </div>
 
 <div class="box">
-    <b>auth_date:</b>
-    <span id="authdate"></span>
-</div>
-
-<div class="box">
-    <b>start_param:</b>
-    <span id="startparam"></span>
+    <b>Comparison:</b>
+    <div id="comparison"></div>
 </div>
 
 <div class="box">
     <b>chat_type:</b>
-    <span id="chattype"></span>
-</div>
-
-<div class="box">
-    <b>chat_instance:</b>
-    <span id="chatinstance"></span>
+    <span id="chatType"></span>
 </div>
 
 <button id="copy">
-Copy report
+    Copy safe report
 </button>
 
 <pre id="result"></pre>
@@ -85,62 +97,184 @@ tg.expand();
 
 const data = tg.initDataUnsafe || {};
 
-document.getElementById("platform").textContent =
+
+// ====================================
+// Signed start_param
+// ====================================
+
+const signedParam =
+    data.start_param ?? null;
+
+
+// ====================================
+// tgWebAppStartParam из URL
+// ====================================
+
+const hashString =
+    window.location.hash.startsWith("#")
+        ? window.location.hash.substring(1)
+        : window.location.hash;
+
+const hashParams =
+    new URLSearchParams(hashString);
+
+const urlParam =
+    hashParams.get("tgWebAppStartParam");
+
+
+// ====================================
+// Вывод
+// ====================================
+
+document.getElementById(
+    "platform"
+).textContent =
     tg.platform || "NONE";
 
-document.getElementById("version").textContent =
+
+document.getElementById(
+    "version"
+).textContent =
     tg.version || "NONE";
 
-document.getElementById("userid").textContent =
-    data.user?.id || "NONE";
 
-document.getElementById("queryid").textContent =
-    data.query_id || "NONE";
-
-document.getElementById("authdate").textContent =
-    data.auth_date || "NONE";
-
-document.getElementById("startparam").textContent =
-    data.start_param || "NONE";
-
-document.getElementById("chattype").textContent =
-    data.chat_type || "NONE";
-
-document.getElementById("chatinstance").textContent =
-    data.chat_instance || "NONE";
+document.getElementById(
+    "signedParam"
+).textContent =
+    signedParam ?? "NONE";
 
 
-document.getElementById("copy").onclick = async () => {
+document.getElementById(
+    "signedLength"
+).textContent =
+    signedParam !== null
+        ? signedParam.length
+        : 0;
+
+
+document.getElementById(
+    "urlParam"
+).textContent =
+    urlParam ?? "NONE";
+
+
+document.getElementById(
+    "urlLength"
+).textContent =
+    urlParam !== null
+        ? urlParam.length
+        : 0;
+
+
+document.getElementById(
+    "chatType"
+).textContent =
+    data.chat_type ?? "NONE";
+
+
+// ====================================
+// Сравнение значений
+// ====================================
+
+let comparison;
+
+if (
+    signedParam === null &&
+    urlParam === null
+) {
+
+    comparison =
+        "Оба параметра отсутствуют";
+
+}
+else if (
+    signedParam === urlParam
+) {
+
+    comparison =
+        "✅ MATCH — значения одинаковые";
+
+}
+else {
+
+    comparison =
+        "⚠️ MISMATCH — значения отличаются";
+
+}
+
+document.getElementById(
+    "comparison"
+).textContent =
+    comparison;
+
+
+// ====================================
+// Копирование безопасного отчёта
+// ====================================
+
+document.getElementById(
+    "copy"
+).onclick =
+async () => {
 
     const report = {
-        platform: tg.platform,
-        version: tg.version,
 
-        user_id:
-            data.user?.id || null,
+        platform:
+            tg.platform || null,
 
-        query_id:
-            data.query_id || null,
+        version:
+            tg.version || null,
 
-        auth_date:
-            data.auth_date || null,
+        signed_start_param:
+            signedParam,
 
-        start_param:
-            data.start_param || null,
+        signed_length:
+            signedParam !== null
+                ? signedParam.length
+                : 0,
+
+        url_start_param:
+            urlParam,
+
+        url_length:
+            urlParam !== null
+                ? urlParam.length
+                : 0,
+
+        match:
+            signedParam === urlParam,
 
         chat_type:
-            data.chat_type || null,
+            data.chat_type || null
 
-        chat_instance:
-            data.chat_instance || null
     };
 
-    await navigator.clipboard.writeText(
-        JSON.stringify(report, null, 2)
-    );
 
-    document.getElementById("result").textContent =
-        "✅ Report copied";
+    try {
+
+        await navigator.clipboard.writeText(
+            JSON.stringify(
+                report,
+                null,
+                2
+            )
+        );
+
+        document.getElementById(
+            "result"
+        ).textContent =
+            "✅ Safe report copied";
+
+    }
+    catch (error) {
+
+        document.getElementById(
+            "result"
+        ).textContent =
+            "❌ Copy failed";
+
+    }
+
 };
 
 </script>
