@@ -30,7 +30,11 @@ app.use((req, res, next) => {
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 
-const MAX_AGE_SECONDS = 300;
+/*
+  Только лабораторное хранилище.
+  После перезапуска Render оно очистится.
+*/
+const sessions = new Map();
 
 function validateInitData(initData) {
   const params = new URLSearchParams(initData);
@@ -61,19 +65,52 @@ function validateInitData(initData) {
   return calculatedHash === hash;
 }
 
-function fingerprint(value) {
-  if (!value) {
+function getTelegramUser(initData) {
+  if (!validateInitData(initData)) {
     return null;
   }
 
-  return crypto
-    .createHash("sha256")
-    .update(value)
-    .digest("hex")
-    .slice(0, 16);
+  const params =
+    new URLSearchParams(initData);
+
+  const rawUser =
+    params.get("user");
+
+  if (!rawUser) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(rawUser);
+  } catch {
+    return null;
+  }
 }
 
-app.post("/inspect", (req, res) => {
+function accountFingerprint(userId) {
+  const value =
+    crypto
+      .createHash("sha256")
+      .update(String(userId))
+      .digest("hex");
+
+  return value.slice(0, 12);
+}
+
+function tokenFingerprint(token) {
+  return crypto
+    .createHash("sha256")
+    .update(token)
+    .digest("hex")
+    .slice(0, 12);
+}
+
+
+/*
+  Создаём серверную лабораторную сессию,
+  связанную с текущим Telegram user.id.
+*/
+app.post("/lab-login", (req, res) => {
   const { initData } = req.body;
 
   if (!initData) {
@@ -83,85 +120,149 @@ app.post("/inspect", (req, res) => {
     });
   }
 
-  if (!validateInitData(initData)) {
+  const user =
+    getTelegramUser(initData);
+
+  if (!user?.id) {
     return res.status(401).json({
       ok: false,
-      error: "invalid signature"
+      error: "invalid Telegram initData"
     });
   }
 
-  const params = new URLSearchParams(initData);
+  const token =
+    crypto.randomBytes(32).toString("hex");
 
-  const authDate = Number(
-    params.get("auth_date")
-  );
-
-  const now = Math.floor(
-    Date.now() / 1000
-  );
-
-  if (
-    !Number.isFinite(authDate) ||
-    authDate <= 0
-  ) {
-    return res.status(401).json({
-      ok: false,
-      error: "invalid auth_date"
-    });
-  }
-
-  const ageSeconds =
-    now - authDate;
-
-  if (
-    ageSeconds > MAX_AGE_SECONDS
-  ) {
-    return res.status(401).json({
-      ok: false,
-      error: "initData expired",
-      age_seconds: ageSeconds
-    });
-  }
-
-  if (
-    authDate > now + 30
-  ) {
-    return res.status(401).json({
-      ok: false,
-      error: "auth_date is in the future"
-    });
-  }
-
-  const queryId =
-    params.get("query_id");
-
-  const startParam =
-    params.get("start_param");
+  sessions.set(token, {
+    telegramUserId: String(user.id),
+    createdAt: Date.now()
+  });
 
   res.json({
     ok: true,
 
-    auth_date: authDate,
+    /*
+      Сам token нужен браузеру,
+      но user.id обратно не показываем.
+    */
+    sessionToken: token,
 
-    age_seconds:
-      ageSeconds,
+    telegram_account:
+      accountFingerprint(user.id),
 
-    query_id_present:
-      Boolean(queryId),
-
-    query_id_fingerprint:
-      fingerprint(queryId),
-
-    start_param:
-      startParam || null
+    session_fingerprint:
+      tokenFingerprint(token)
   });
 });
+
+
+/*
+  Сравниваем:
+
+  1. кому принадлежит сохранённая session
+  2. какой Telegram аккаунт открыл Mini App сейчас
+*/
+app.post("/lab-check", (req, res) => {
+  const {
+    initData,
+    sessionToken
+  } = req.body;
+
+  if (!initData) {
+    return res.status(400).json({
+      ok: false,
+      error: "initData missing"
+    });
+  }
+
+  const currentUser =
+    getTelegramUser(initData);
+
+  if (!currentUser?.id) {
+    return res.status(401).json({
+      ok: false,
+      error: "invalid Telegram initData"
+    });
+  }
+
+  const currentFingerprint =
+    accountFingerprint(
+      currentUser.id
+    );
+
+  if (!sessionToken) {
+    return res.json({
+      ok: true,
+
+      current_telegram_account:
+        currentFingerprint,
+
+      stored_session:
+        false,
+
+      comparison:
+        "NO SESSION"
+    });
+  }
+
+  const session =
+    sessions.get(sessionToken);
+
+  if (!session) {
+    return res.json({
+      ok: true,
+
+      current_telegram_account:
+        currentFingerprint,
+
+      stored_session:
+        true,
+
+      session_valid:
+        false,
+
+      comparison:
+        "SESSION NOT FOUND"
+    });
+  }
+
+  const sessionFingerprint =
+    accountFingerprint(
+      session.telegramUserId
+    );
+
+  const sameAccount =
+    String(currentUser.id) ===
+    String(session.telegramUserId);
+
+  res.json({
+    ok: true,
+
+    current_telegram_account:
+      currentFingerprint,
+
+    session_owner_account:
+      sessionFingerprint,
+
+    session_fingerprint:
+      tokenFingerprint(sessionToken),
+
+    same_account:
+      sameAccount,
+
+    comparison:
+      sameAccount
+        ? "MATCH"
+        : "CROSS-ACCOUNT SESSION DETECTED"
+  });
+});
+
 
 app.listen(
   process.env.PORT || 3000,
   () => {
     console.log(
-      "Telegram Bug Lab backend running"
+      "Telegram Account Isolation Lab running"
     );
   }
 );

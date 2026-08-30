@@ -1,12 +1,21 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Telegram Account Isolation Lab</title>
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <title>
+        Telegram Account Isolation Lab
+    </title>
+
+    <script
+        src="https://telegram.org/js/telegram-web-app.js">
+    </script>
 
     <style>
         body {
@@ -34,181 +43,215 @@
 
 <body>
 
-<h1>Telegram Account Isolation Lab</h1>
+<h1>
+    Telegram Account Isolation Lab
+</h1>
 
-<p id="status">Проверяем Telegram...</p>
+<p id="status">
+    Проверяем Telegram...
+</p>
 
-<button id="write">
-    Write marker for current account
+<button id="login">
+    Create session for THIS account
 </button>
 
-<button id="read">
-    Read stored markers
+<button id="check">
+    Check stored session
 </button>
 
 <button id="clear">
-    Clear browser storage
+    Delete stored session
 </button>
 
 <pre id="result">
-Сначала нажми Write marker for current account
+Сначала работаем с аккаунтом №1
 </pre>
 
 <script>
-const tg = window.Telegram.WebApp;
+
+const tg =
+    window.Telegram.WebApp;
 
 tg.ready();
 tg.expand();
 
 const result =
-    document.getElementById("result");
+    document.getElementById(
+        "result"
+    );
 
-const user =
-    tg.initDataUnsafe?.user;
-
-document.getElementById("status").textContent =
-    user
+document.getElementById(
+    "status"
+).textContent =
+    tg.initData
         ? "✅ Telegram Mini App обнаружена"
-        : "❌ Telegram user отсутствует";
+        : "❌ initData отсутствует";
 
 
-function accountFingerprint() {
-    if (!user?.id) {
-        return "UNKNOWN";
-    }
+/*
+  ACCOUNT №1:
 
-    const text =
-        String(user.id);
-
-    return "ACC-" +
-        text.slice(-4);
-}
-
-
-function createMarker() {
-    return (
-        accountFingerprint() +
-        "-" +
-        Date.now() +
-        "-" +
-        Math.random()
-            .toString(36)
-            .slice(2, 10)
-    );
-}
-
-
-function getCookie(name) {
-    const cookies =
-        document.cookie.split(";");
-
-    for (const cookie of cookies) {
-        const [key, ...rest] =
-            cookie.trim().split("=");
-
-        if (key === name) {
-            return decodeURIComponent(
-                rest.join("=")
-            );
-        }
-    }
-
-    return null;
-}
-
-
-document.getElementById("write").onclick = () => {
-
-    const marker =
-        createMarker();
-
-    localStorage.setItem(
-        "tg_lab_marker",
-        marker
-    );
-
-    sessionStorage.setItem(
-        "tg_lab_marker",
-        marker
-    );
-
-    document.cookie =
-        "tg_lab_marker=" +
-        encodeURIComponent(marker) +
-        "; path=/; SameSite=Lax";
+  сервер создаёт token,
+  браузер сохраняет его
+  в localStorage.
+*/
+document.getElementById(
+    "login"
+).onclick =
+    async () => {
 
     result.textContent =
+        "Создаём лабораторную сессию...";
+
+    try {
+
+        const response =
+            await fetch(
+                "https://telegram-bug-lab.onrender.com/lab-login",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify({
+                            initData:
+                                tg.initData
+                        })
+                }
+            );
+
+        const data =
+            await response.json();
+
+        if (!data.ok) {
+            result.textContent =
+                JSON.stringify(
+                    data,
+                    null,
+                    2
+                );
+
+            return;
+        }
+
+        localStorage.setItem(
+            "tg_lab_session",
+            data.sessionToken
+        );
+
+        /*
+          Не показываем raw token.
+        */
+
+        result.textContent =
 `
-✅ Marker written
+✅ SESSION CREATED
 
-Current account fingerprint:
-${accountFingerprint()}
+Telegram account:
+${data.telegram_account}
 
-Marker:
-${marker}
+Session fingerprint:
+${data.session_fingerprint}
+
+Token сохранён в localStorage.
 
 Теперь:
+
 1. Закрой Mini App
-2. Переключись на другой Telegram-аккаунт
+2. Переключись на аккаунт №2
 3. Открой этот же Mini App
-4. НЕ нажимай Write
-5. Нажми Read stored markers
+4. НЕ нажимай Create session
+5. Нажми Check stored session
 `;
+
+    } catch (error) {
+
+        result.textContent =
+            "❌ " + error.message;
+    }
 };
 
 
-document.getElementById("read").onclick = () => {
+/*
+  Отправляем одновременно:
 
-    const local =
+  - новую initData текущего аккаунта
+  - старый token из localStorage
+*/
+document.getElementById(
+    "check"
+).onclick =
+    async () => {
+
+    const sessionToken =
         localStorage.getItem(
-            "tg_lab_marker"
-        );
-
-    const session =
-        sessionStorage.getItem(
-            "tg_lab_marker"
-        );
-
-    const cookie =
-        getCookie(
-            "tg_lab_marker"
+            "tg_lab_session"
         );
 
     result.textContent =
-`
-Current account fingerprint:
-${accountFingerprint()}
+        "Проверяем...";
 
-localStorage:
-${local ?? "NONE"}
+    try {
 
-sessionStorage:
-${session ?? "NONE"}
+        const response =
+            await fetch(
+                "https://telegram-bug-lab.onrender.com/lab-check",
+                {
+                    method: "POST",
 
-cookie:
-${cookie ?? "NONE"}
-`;
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify({
+                            initData:
+                                tg.initData,
+
+                            sessionToken:
+                                sessionToken
+                        })
+                }
+            );
+
+        const data =
+            await response.json();
+
+        result.textContent =
+            JSON.stringify(
+                data,
+                null,
+                2
+            );
+
+    } catch (error) {
+
+        result.textContent =
+            "❌ " + error.message;
+    }
 };
 
 
-document.getElementById("clear").onclick = () => {
+document.getElementById(
+    "clear"
+).onclick =
+    () => {
 
     localStorage.removeItem(
-        "tg_lab_marker"
+        "tg_lab_session"
     );
-
-    sessionStorage.removeItem(
-        "tg_lab_marker"
-    );
-
-    document.cookie =
-        "tg_lab_marker=; Max-Age=0; path=/";
 
     result.textContent =
-        "✅ Storage cleared";
+        "✅ Local session deleted";
 };
 
 </script>
 
 </body>
+
 </html>
