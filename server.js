@@ -1,6 +1,5 @@
 
-
-  const express = require("express");
+const express = require("express");
 const crypto = require("crypto");
 
 const app = express();
@@ -30,12 +29,9 @@ app.use((req, res, next) => {
   next();
 });
 
-
 const BOT_TOKEN = process.env.BOT_TOKEN;
 
-
 function validateInitData(initData) {
-
   const params = new URLSearchParams(initData);
 
   const hash = params.get("hash");
@@ -46,97 +42,81 @@ function validateInitData(initData) {
 
   params.delete("hash");
 
-  const dataCheckString =
-    [...params.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, value]) => `${key}=${value}`)
-      .join("\n");
+  const dataCheckString = [...params.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${key}=${value}`)
+    .join("\n");
 
+  const secretKey = crypto
+    .createHmac("sha256", "WebAppData")
+    .update(BOT_TOKEN)
+    .digest();
 
-  const secretKey =
-    crypto
-      .createHmac("sha256", "WebAppData")
-      .update(BOT_TOKEN)
-      .digest();
-
-
-  const calculatedHash =
-    crypto
-      .createHmac("sha256", secretKey)
-      .update(dataCheckString)
-      .digest("hex");
-
+  const calculatedHash = crypto
+    .createHmac("sha256", secretKey)
+    .update(dataCheckString)
+    .digest("hex");
 
   return calculatedHash === hash;
 }
 
-
-
-app.post("/verify", (req, res) => {
-
+app.post("/inspect", (req, res) => {
   const { initData } = req.body;
 
-
   if (!initData) {
-
     return res.status(400).json({
       ok: false,
       error: "initData missing"
     });
-
   }
 
-
-  const valid =
-    validateInitData(initData);
-
-
-  if (!valid) {
-
+  if (!validateInitData(initData)) {
     return res.status(401).json({
       ok: false,
       error: "invalid signature"
     });
-
   }
 
+  const params = new URLSearchParams(initData);
 
-  const params =
-    new URLSearchParams(initData);
+  const authDate = Number(
+    params.get("auth_date")
+  );
 
+  const now = Math.floor(
+    Date.now() / 1000
+  );
 
-  let user = null;
+  const ageSeconds =
+    Number.isFinite(authDate)
+      ? now - authDate
+      : null;
 
-  try {
+  const queryId =
+    params.get("query_id");
 
-    const userData =
-      params.get("user");
-
-    if (userData) {
-      user = JSON.parse(userData);
-    }
-
-  } catch {}
-
-
-  const signedStartParam =
+  const startParam =
     params.get("start_param");
 
-
   res.json({
-
     ok: true,
 
-    signedStartParam:
-      signedStartParam || null,
+    auth_date: authDate || null,
 
-    user
+    age_seconds: ageSeconds,
 
+    query_id_present:
+      Boolean(queryId),
+
+    query_id_preview:
+      queryId
+        ? queryId.slice(0, 6) + "..."
+        : null,
+
+    start_param:
+      startParam || null
   });
-
 });
-
-
 
 app.listen(
   process.env.PORT || 3000,
