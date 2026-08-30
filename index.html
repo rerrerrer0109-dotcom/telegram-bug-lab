@@ -1,309 +1,345 @@
-<!DOCTYPE html>
+<<!DOCTYPE html>
+
 <html lang="ru">
+
 <head>
+
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Telegram Start Param Lab</title>
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <title>
+        Telegram Bug Lab
+    </title>
+
+
+    <script
+        src="https://telegram.org/js/telegram-web-app.js">
+    </script>
+
 
     <style>
+
         body {
             font-family: Arial, sans-serif;
-            padding: 18px;
-        }
-
-        .box {
-            border: 1px solid #aaa;
-            padding: 12px;
-            margin: 10px 0;
-            word-break: break-all;
+            padding: 20px;
         }
 
         button {
+            display: block;
+            margin: 10px 0;
             padding: 12px 18px;
             font-size: 16px;
+            cursor: pointer;
         }
 
         pre {
             white-space: pre-wrap;
             word-break: break-word;
+
+            background: #eeeeee;
+
+            padding: 15px;
+
+            border-radius: 8px;
         }
+
     </style>
+
 </head>
+
 
 <body>
 
-<h2>Telegram Start Param Lab v2</h2>
 
-<div class="box">
-    <b>Platform:</b>
-    <span id="platform"></span>
-</div>
+<h1>
+    Telegram start_param Lab
+</h1>
 
-<div class="box">
-    <b>Telegram version:</b>
-    <span id="version"></span>
-</div>
 
-<div class="box">
-    <b>Signed start_param:</b>
-    <div id="signed"></div>
+<p id="status">
+    Проверяем Telegram...
+</p>
 
-    <b>Length:</b>
-    <span id="signedLength"></span>
-</div>
 
-<div class="box">
-    <b>tgWebAppStartParam from query:</b>
-    <div id="queryParam"></div>
-
-    <b>Length:</b>
-    <span id="queryLength"></span>
-</div>
-
-<div class="box">
-    <b>tgWebAppStartParam from hash:</b>
-    <div id="hashParam"></div>
-
-    <b>Length:</b>
-    <span id="hashLength"></span>
-</div>
-
-<div class="box">
-    <b>Detected URL param:</b>
-    <div id="detected"></div>
-
-    <b>Length:</b>
-    <span id="detectedLength"></span>
-</div>
-
-<div class="box">
-    <b>Comparison:</b>
-    <div id="comparison"></div>
-</div>
-
-<button id="copy">
-    Copy safe report
+<button id="check">
+    Check start_param
 </button>
 
-<pre id="result"></pre>
+
+<button id="tamper">
+    Simulate URL tamper
+</button>
+
+
+<pre id="result">
+Нажми Check start_param
+</pre>
+
+
 
 <script>
-const tg = window.Telegram.WebApp;
+
+const tg =
+    window.Telegram.WebApp;
+
 
 tg.ready();
+
 tg.expand();
 
-const data = tg.initDataUnsafe || {};
-
-const signedParam =
-    data.start_param ?? null;
 
 
-// ===================================
-// QUERY STRING
-// ===================================
-
-const queryParams =
-    new URLSearchParams(
-        window.location.search
-    );
-
-const queryStartParam =
-    queryParams.get(
-        "tgWebAppStartParam"
-    );
+const status =
+    document.getElementById("status");
 
 
-// ===================================
-// HASH
-// ===================================
+if (tg.initData) {
 
-let hashText =
-    window.location.hash || "";
-
-if (hashText.startsWith("#")) {
-    hashText =
-        hashText.substring(1);
-}
-
-const hashParams =
-    new URLSearchParams(
-        hashText
-    );
-
-const hashStartParam =
-    hashParams.get(
-        "tgWebAppStartParam"
-    );
-
-
-// ===================================
-// DETECTED
-// ===================================
-
-const detectedParam =
-    queryStartParam ??
-    hashStartParam ??
-    null;
-
-
-// ===================================
-// OUTPUT
-// ===================================
-
-document.getElementById(
-    "platform"
-).textContent =
-    tg.platform || "NONE";
-
-
-document.getElementById(
-    "version"
-).textContent =
-    tg.version || "NONE";
-
-
-document.getElementById(
-    "signed"
-).textContent =
-    signedParam ?? "NONE";
-
-document.getElementById(
-    "signedLength"
-).textContent =
-    signedParam !== null
-        ? signedParam.length
-        : 0;
-
-
-document.getElementById(
-    "queryParam"
-).textContent =
-    queryStartParam ?? "NONE";
-
-document.getElementById(
-    "queryLength"
-).textContent =
-    queryStartParam !== null
-        ? queryStartParam.length
-        : 0;
-
-
-document.getElementById(
-    "hashParam"
-).textContent =
-    hashStartParam ?? "NONE";
-
-document.getElementById(
-    "hashLength"
-).textContent =
-    hashStartParam !== null
-        ? hashStartParam.length
-        : 0;
-
-
-document.getElementById(
-    "detected"
-).textContent =
-    detectedParam ?? "NONE";
-
-document.getElementById(
-    "detectedLength"
-).textContent =
-    detectedParam !== null
-        ? detectedParam.length
-        : 0;
-
-
-// ===================================
-// COMPARISON
-// ===================================
-
-let comparison = "";
-
-if (
-    signedParam === detectedParam
-) {
-
-    comparison =
-        "✅ MATCH";
+    status.textContent =
+        "✅ Telegram Mini App обнаружена";
 
 } else {
 
-    comparison =
-        "⚠️ MISMATCH";
+    status.textContent =
+        "❌ initData отсутствует";
 
 }
 
-document.getElementById(
-    "comparison"
-).textContent =
-    comparison;
 
 
-// ===================================
-// SAFE REPORT
-// ===================================
+function getQueryStartParam() {
 
-document.getElementById(
-    "copy"
-).onclick =
-async () => {
+    const query =
+        new URLSearchParams(
+            window.location.search
+        );
 
-    const report = {
+    return query.get(
+        "tgWebAppStartParam"
+    );
 
-        platform:
-            tg.platform || null,
+}
 
-        version:
-            tg.version || null,
 
-        signed_length:
-            signedParam?.length || 0,
 
-        query_length:
-            queryStartParam?.length || 0,
+function getHashStartParam() {
 
-        hash_length:
-            hashStartParam?.length || 0,
+    const hash =
+        window.location.hash
+            .replace(/^#/, "");
 
-        detected_length:
-            detectedParam?.length || 0,
+    const params =
+        new URLSearchParams(hash);
 
-        signed_equals_detected:
-            signedParam === detectedParam
+    return params.get(
+        "tgWebAppStartParam"
+    );
 
-    };
+}
+
+
+
+function detectURLStartParam() {
+
+    return (
+        getQueryStartParam() ||
+        getHashStartParam() ||
+        null
+    );
+
+}
+
+
+
+async function checkStartParam() {
+
+    const result =
+        document.getElementById(
+            "result"
+        );
+
+
+    result.textContent =
+        "Проверяем...";
+
 
     try {
 
-        await navigator.clipboard.writeText(
-            JSON.stringify(
-                report,
-                null,
-                2
-            )
-        );
+        const response =
+            await fetch(
+                "https://telegram-bug-lab.onrender.com/verify",
+                {
 
-        document.getElementById(
-            "result"
-        ).textContent =
-            "✅ Safe report copied";
+                    method: "POST",
 
-    } catch {
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
 
-        document.getElementById(
-            "result"
-        ).textContent =
-            "❌ Copy failed";
+                    body:
+                        JSON.stringify({
+                            initData:
+                                tg.initData
+                        })
+
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (!data.ok) {
+
+            result.textContent =
+                JSON.stringify(
+                    data,
+                    null,
+                    2
+                );
+
+            return;
+        }
+
+
+        const signed =
+            data.signedStartParam;
+
+
+        const queryValue =
+            getQueryStartParam();
+
+
+        const hashValue =
+            getHashStartParam();
+
+
+        const detected =
+            detectURLStartParam();
+
+
+        const match =
+            signed === detected;
+
+
+        result.textContent =
+`
+Signed start_param:
+${signed ?? "NONE"}
+
+Length:
+${signed?.length ?? 0}
+
+
+tgWebAppStartParam from query:
+${queryValue ?? "NONE"}
+
+Length:
+${queryValue?.length ?? 0}
+
+
+tgWebAppStartParam from hash:
+${hashValue ?? "NONE"}
+
+Length:
+${hashValue?.length ?? 0}
+
+
+Detected URL param:
+${detected ?? "NONE"}
+
+Length:
+${detected?.length ?? 0}
+
+
+Comparison:
+
+${match
+    ? "✅ MATCH"
+    : "⚠️ MISMATCH"}
+`;
 
     }
 
+    catch (error) {
+
+        result.textContent =
+            "❌ Ошибка: " +
+            error.message;
+
+    }
+
+}
+
+
+
+document
+    .getElementById("check")
+    .onclick =
+        checkStartParam;
+
+
+
+document
+    .getElementById("tamper")
+    .onclick =
+        () => {
+
+    const url =
+        new URL(
+            window.location.href
+        );
+
+
+    /*
+      Мы специально меняем
+      ТОЛЬКО значение URL.
+
+      Подписанный initData
+      не изменяется.
+    */
+
+    url.searchParams.set(
+        "tgWebAppStartParam",
+        "test999"
+    );
+
+
+    history.replaceState(
+        {},
+        "",
+        url
+    );
+
+
+    document
+        .getElementById("result")
+        .textContent =
+`
+⚠️ URL локально изменён.
+
+tgWebAppStartParam = test999
+
+Подписанный Telegram initData
+НЕ изменялся.
+
+Теперь нажми:
+
+Check start_param
+`;
+
 };
+
+
 </script>
 
+
 </body>
+
 </html>
