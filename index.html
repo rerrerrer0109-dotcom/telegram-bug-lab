@@ -21,14 +21,9 @@
             word-break: break-all;
         }
 
-        .ok {
-            font-weight: bold;
-        }
-
         button {
             padding: 12px 18px;
             font-size: 16px;
-            cursor: pointer;
         }
 
         pre {
@@ -40,7 +35,7 @@
 
 <body>
 
-<h2>Telegram Start Param Lab</h2>
+<h2>Telegram Start Param Lab v2</h2>
 
 <div class="box">
     <b>Platform:</b>
@@ -54,32 +49,39 @@
 
 <div class="box">
     <b>Signed start_param:</b>
-    <div id="signedParam"></div>
-
-    <br>
+    <div id="signed"></div>
 
     <b>Length:</b>
     <span id="signedLength"></span>
 </div>
 
 <div class="box">
-    <b>URL tgWebAppStartParam:</b>
-    <div id="urlParam"></div>
-
-    <br>
+    <b>tgWebAppStartParam from query:</b>
+    <div id="queryParam"></div>
 
     <b>Length:</b>
-    <span id="urlLength"></span>
+    <span id="queryLength"></span>
+</div>
+
+<div class="box">
+    <b>tgWebAppStartParam from hash:</b>
+    <div id="hashParam"></div>
+
+    <b>Length:</b>
+    <span id="hashLength"></span>
+</div>
+
+<div class="box">
+    <b>Detected URL param:</b>
+    <div id="detected"></div>
+
+    <b>Length:</b>
+    <span id="detectedLength"></span>
 </div>
 
 <div class="box">
     <b>Comparison:</b>
     <div id="comparison"></div>
-</div>
-
-<div class="box">
-    <b>chat_type:</b>
-    <span id="chatType"></span>
 </div>
 
 <button id="copy">
@@ -89,7 +91,6 @@
 <pre id="result"></pre>
 
 <script>
-
 const tg = window.Telegram.WebApp;
 
 tg.ready();
@@ -97,34 +98,61 @@ tg.expand();
 
 const data = tg.initDataUnsafe || {};
 
-
-// ====================================
-// Signed start_param
-// ====================================
-
 const signedParam =
     data.start_param ?? null;
 
 
-// ====================================
-// tgWebAppStartParam из URL
-// ====================================
+// ===================================
+// QUERY STRING
+// ===================================
 
-const hashString =
-    window.location.hash.startsWith("#")
-        ? window.location.hash.substring(1)
-        : window.location.hash;
+const queryParams =
+    new URLSearchParams(
+        window.location.search
+    );
+
+const queryStartParam =
+    queryParams.get(
+        "tgWebAppStartParam"
+    );
+
+
+// ===================================
+// HASH
+// ===================================
+
+let hashText =
+    window.location.hash || "";
+
+if (hashText.startsWith("#")) {
+    hashText =
+        hashText.substring(1);
+}
 
 const hashParams =
-    new URLSearchParams(hashString);
+    new URLSearchParams(
+        hashText
+    );
 
-const urlParam =
-    hashParams.get("tgWebAppStartParam");
+const hashStartParam =
+    hashParams.get(
+        "tgWebAppStartParam"
+    );
 
 
-// ====================================
-// Вывод
-// ====================================
+// ===================================
+// DETECTED
+// ===================================
+
+const detectedParam =
+    queryStartParam ??
+    hashStartParam ??
+    null;
+
+
+// ===================================
+// OUTPUT
+// ===================================
 
 document.getElementById(
     "platform"
@@ -139,10 +167,9 @@ document.getElementById(
 
 
 document.getElementById(
-    "signedParam"
+    "signed"
 ).textContent =
     signedParam ?? "NONE";
-
 
 document.getElementById(
     "signedLength"
@@ -153,52 +180,61 @@ document.getElementById(
 
 
 document.getElementById(
-    "urlParam"
+    "queryParam"
 ).textContent =
-    urlParam ?? "NONE";
-
+    queryStartParam ?? "NONE";
 
 document.getElementById(
-    "urlLength"
+    "queryLength"
 ).textContent =
-    urlParam !== null
-        ? urlParam.length
+    queryStartParam !== null
+        ? queryStartParam.length
         : 0;
 
 
 document.getElementById(
-    "chatType"
+    "hashParam"
 ).textContent =
-    data.chat_type ?? "NONE";
+    hashStartParam ?? "NONE";
+
+document.getElementById(
+    "hashLength"
+).textContent =
+    hashStartParam !== null
+        ? hashStartParam.length
+        : 0;
 
 
-// ====================================
-// Сравнение значений
-// ====================================
+document.getElementById(
+    "detected"
+).textContent =
+    detectedParam ?? "NONE";
 
-let comparison;
+document.getElementById(
+    "detectedLength"
+).textContent =
+    detectedParam !== null
+        ? detectedParam.length
+        : 0;
+
+
+// ===================================
+// COMPARISON
+// ===================================
+
+let comparison = "";
 
 if (
-    signedParam === null &&
-    urlParam === null
+    signedParam === detectedParam
 ) {
 
     comparison =
-        "Оба параметра отсутствуют";
+        "✅ MATCH";
 
-}
-else if (
-    signedParam === urlParam
-) {
+} else {
 
     comparison =
-        "✅ MATCH — значения одинаковые";
-
-}
-else {
-
-    comparison =
-        "⚠️ MISMATCH — значения отличаются";
+        "⚠️ MISMATCH";
 
 }
 
@@ -208,9 +244,9 @@ document.getElementById(
     comparison;
 
 
-// ====================================
-// Копирование безопасного отчёта
-// ====================================
+// ===================================
+// SAFE REPORT
+// ===================================
 
 document.getElementById(
     "copy"
@@ -225,30 +261,22 @@ async () => {
         version:
             tg.version || null,
 
-        signed_start_param:
-            signedParam,
-
         signed_length:
-            signedParam !== null
-                ? signedParam.length
-                : 0,
+            signedParam?.length || 0,
 
-        url_start_param:
-            urlParam,
+        query_length:
+            queryStartParam?.length || 0,
 
-        url_length:
-            urlParam !== null
-                ? urlParam.length
-                : 0,
+        hash_length:
+            hashStartParam?.length || 0,
 
-        match:
-            signedParam === urlParam,
+        detected_length:
+            detectedParam?.length || 0,
 
-        chat_type:
-            data.chat_type || null
+        signed_equals_detected:
+            signedParam === detectedParam
 
     };
-
 
     try {
 
@@ -265,8 +293,7 @@ async () => {
         ).textContent =
             "✅ Safe report copied";
 
-    }
-    catch (error) {
+    } catch {
 
         document.getElementById(
             "result"
@@ -276,7 +303,6 @@ async () => {
     }
 
 };
-
 </script>
 
 </body>
