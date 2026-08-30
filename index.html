@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Telegram Bug Lab</title>
+</head>
+
+<body>
+    <h1>Telegram Bug Lab</h1>
+
+    <p>Страница работает!</p>
+
+    <p id="status">Проверяем Telegram...</p>
+
+    <script>
+        const tg = window.Telegram?.WebApp;
+
+        if (tg) {
+            tg.ready();
+
+            document.getElementById("status").textContent =
+                "Mini App работает внутри Telegram";
+        } else {
+            document.getElementById("status").textContent =
+                "Сейчас страница открыта не в Telegram";
+        }
+    </script>
+</body>
+</html>
