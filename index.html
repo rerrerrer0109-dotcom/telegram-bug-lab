@@ -1,466 +1,287 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <title>Telegram Storage Isolation Lab</title>
-
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-        }
-
-        button {
-            display: block;
-            width: 100%;
-            margin: 10px 0;
-            padding: 13px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-
-        pre {
-            white-space: pre-wrap;
-            word-break: break-word;
-            background: #eee;
-            padding: 15px;
-            border-radius: 8px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Testbot — SecureStorage Isolation Lab</title>
+  <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
+  <style>
+    body{font-family:Arial,sans-serif;margin:0;padding:20px;background:#f5f6f8;color:#111}
+    .wrap{max-width:980px;margin:0 auto}.card{background:#fff;border:1px solid #ddd;border-radius:12px;padding:16px;margin-bottom:14px}
+    h1{margin:0 0 6px;font-size:24px}.subtitle{margin-bottom:16px;color:#666;font-size:14px}
+    .account{border:2px solid #20a05a;border-radius:10px;padding:12px;font-family:Consolas,monospace;white-space:pre-wrap;word-break:break-word;background:#fbfffc}
+    button{display:block;width:100%;margin:10px 0;padding:13px;font-size:16px;cursor:pointer;border:1px solid #cfd3d8;border-radius:9px;background:#fff}
+    button:disabled{opacity:.5;cursor:not-allowed}.write{border-color:#9bd1ad}.read{border-color:#9db9df}.clear{border-color:#dfafb4}
+    .secure{border:2px solid #d9363e;border-radius:10px;padding:12px;font-family:Consolas,monospace;white-space:pre-wrap;word-break:break-word;background:#fffafb;min-height:130px}
+    .marker{border:1px solid #cfd3d8;border-radius:10px;padding:12px;font-family:Consolas,monospace;white-space:pre-wrap;word-break:break-word;background:#fafafa}
+    .log{background:#11151a;color:#e9edf2;border-radius:9px;padding:12px;min-height:180px;max-height:360px;overflow:auto;font-family:Consolas,monospace;font-size:12px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+    .notice{line-height:1.5;font-size:14px}.grid{display:grid;grid-template-columns:1.25fr .75fr;gap:14px}.small{color:#666;font-size:12px}.mono{font-family:Consolas,monospace;word-break:break-word}
+    @media(max-width:760px){.grid{grid-template-columns:1fr}}
+  </style>
 </head>
-
 <body>
+<div class="wrap">
+  <div class="card">
+    <h1>Testbot — SecureStorage Isolation Lab</h1>
+    <div class="subtitle">Минимальный A/B тест для проверки изоляции SecureStorage между аккаунтами Telegram.</div>
+    <div id="status">Проверяем Telegram...</div>
+  </div>
 
-<h1>Telegram Storage Isolation Lab</h1>
+  <div class="card">
+    <div style="font-weight:700;margin-bottom:8px">CURRENT TELEGRAM ACCOUNT</div>
+    <div class="account" id="account">Loading...</div>
+  </div>
 
-<p id="status">Проверяем...</p>
+  <div class="grid">
+    <div>
+      <div class="card">
+        <button class="write" id="write">WRITE marker for current account</button>
+        <button class="read" id="read">READ ONLY — do not overwrite</button>
+        <button class="clear" id="clear">CLEAR SecureStorage test key</button>
+      </div>
 
-<button id="write">
-    WRITE markers for current account
-</button>
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:8px">SECURE STORAGE — DIRECT CALLBACK</div>
+        <div class="secure" id="secureResult">Not read yet.</div>
+      </div>
 
-<button id="read">
-    READ ONLY — do not overwrite
-</button>
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:8px">TEST MARKER</div>
+        <div class="marker" id="marker">No marker generated in this page instance.</div>
+        <div class="small" style="margin-top:8px">Маркер хранится только в памяти JavaScript для сравнения и не записывается в browser storage.</div>
+      </div>
+    </div>
 
-<button id="clear">
-    CLEAR test markers
-</button>
+    <div>
+      <div class="card notice">
+        <b>Clean-test conditions</b>
+        <div style="margin-top:8px">Эксперимент хранения использует только <span class="mono">Telegram.WebApp.SecureStorage</span>.</div>
+        <div style="margin-top:8px">Нет browser-storage fallback.</div>
+        <div style="margin-top:8px">Нет альтернативного Telegram storage API.</div>
+        <div style="margin-top:8px">Нет стороннего storage SDK.</div>
+        <div style="margin-top:8px">Нет автоматической записи при старте.</div>
+        <div style="margin-top:8px">Restore не вызывается во время A/B теста.</div>
+      </div>
 
-<pre id="result">
-Аккаунт №1: нажми WRITE
-</pre>
+      <div class="card notice">
+        <b>Procedure</b>
+        <div style="margin-top:8px"><b>A:</b> проверь ID → нажми WRITE один раз → запиши точный OWNER-... marker.</div>
+        <div style="margin-top:8px"><b>B:</b> переключи Telegram account → открой Mini App снова → проверь ID → НЕ нажимай WRITE → нажми READ ONLY.</div>
+        <div style="margin-top:8px"><b>Reproduction signal:</b> direct SecureStorage callback аккаунта B возвращает точный marker, который записал A.</div>
+      </div>
+
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:8px">EVENT LOG</div>
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
+"use strict";
 
-const tg = window.Telegram.WebApp;
+const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+const result = document.getElementById("secureResult");
+const accountEl = document.getElementById("account");
+const markerEl = document.getElementById("marker");
+const logEl = document.getElementById("log");
+const KEY = "account_isolation_test_2026_clean_v2";
+let currentMarker = null;
 
-tg.ready();
-tg.expand();
-
-const result =
-    document.getElementById("result");
-
-const KEY =
-    "account_isolation_test_2026";
-
-
-document.getElementById("status").textContent =
-    "Telegram WebApp version: " +
-    tg.version +
-    "\nDeviceStorage: " +
-    (tg.DeviceStorage ? "YES" : "NO") +
-    "\nSecureStorage: " +
-    (tg.SecureStorage ? "YES" : "NO");
-
-
-async function getAccountFingerprint() {
-
-    try {
-
-        const response = await fetch(
-            "https://telegram-bug-lab.onrender.com/lab-check",
-            {
-                method: "POST",
-
-                headers: {
-                    "Content-Type":
-                        "application/json"
-                },
-
-                body: JSON.stringify({
-                    initData: tg.initData,
-                    sessionToken: null
-                })
-            }
-        );
-
-        const data =
-            await response.json();
-
-        return (
-            data.current_telegram_account
-            || "UNKNOWN"
-        );
-
-    } catch (e) {
-
-        return "ERROR";
-    }
+function log(message) {
+  logEl.textContent += "[" + new Date().toISOString() + "] " + message + "\n";
+  logEl.scrollTop = logEl.scrollHeight;
 }
 
-
-function deviceSet(key, value) {
-
-    return new Promise((resolve) => {
-
-        if (!tg.DeviceStorage) {
-
-            resolve({
-                supported: false
-            });
-
-            return;
-        }
-
-        tg.DeviceStorage.setItem(
-            key,
-            value,
-            (error, success) => {
-
-                resolve({
-                    supported: true,
-                    error:
-                        error || null,
-                    success:
-                        Boolean(success)
-                });
-            }
-        );
-    });
+function displayUser(user) {
+  if (!user) return "Telegram user data unavailable";
+  const name = [user.first_name, user.last_name].filter(Boolean).join(" ").trim();
+  return "user_id: " + String(user.id ?? "UNKNOWN") +
+    "\nname: " + (name || "—") +
+    "\nusername: " + (user.username ? "@" + user.username : "—");
 }
 
-
-function deviceGet(key) {
-
-    return new Promise((resolve) => {
-
-        if (!tg.DeviceStorage) {
-
-            resolve({
-                supported: false,
-                value: null
-            });
-
-            return;
-        }
-
-        tg.DeviceStorage.getItem(
-            key,
-            (error, value) => {
-
-                resolve({
-                    supported: true,
-                    error:
-                        error || null,
-                    value:
-                        value ?? null
-                });
-            }
-        );
-    });
+function ensureSecureStorage() {
+  if (!tg) throw new Error("Telegram.WebApp is unavailable.");
+  if (!tg.SecureStorage) throw new Error("SecureStorage is unavailable in this Telegram client.");
 }
-
-
-function deviceRemove(key) {
-
-    return new Promise((resolve) => {
-
-        if (!tg.DeviceStorage) {
-
-            resolve(false);
-
-            return;
-        }
-
-        tg.DeviceStorage.removeItem(
-            key,
-            () => resolve(true)
-        );
-    });
-}
-
 
 function secureSet(key, value) {
-
-    return new Promise((resolve) => {
-
-        if (!tg.SecureStorage) {
-
-            resolve({
-                supported: false
-            });
-
-            return;
-        }
-
-        tg.SecureStorage.setItem(
-            key,
-            value,
-            (error, success) => {
-
-                resolve({
-                    supported: true,
-                    error:
-                        error || null,
-                    success:
-                        Boolean(success)
-                });
-            }
-        );
-    });
+  return new Promise((resolve, reject) => {
+    try {
+      tg.SecureStorage.setItem(key, value, (error, success) => {
+        if (error) return reject(new Error(String(error)));
+        resolve(Boolean(success));
+      });
+    } catch (error) {
+      reject(error instanceof Error ? error : new Error(String(error)));
+    }
+  });
 }
-
 
 function secureGet(key) {
-
-    return new Promise((resolve) => {
-
-        if (!tg.SecureStorage) {
-
-            resolve({
-                supported: false,
-                value: null,
-                canRestore: false
-            });
-
-            return;
-        }
-
-        tg.SecureStorage.getItem(
-            key,
-            (
-                error,
-                value,
-                canRestore
-            ) => {
-
-                resolve({
-                    supported: true,
-
-                    error:
-                        error || null,
-
-                    value:
-                        value ?? null,
-
-                    canRestore:
-                        Boolean(canRestore)
-                });
-            }
-        );
-    });
+  return new Promise((resolve, reject) => {
+    try {
+      tg.SecureStorage.getItem(key, (error, value, canRestore) => {
+        if (error) return reject(new Error(String(error)));
+        resolve({error:null,value:value === null ? null : String(value),canRestore:Boolean(canRestore)});
+      });
+    } catch (error) {
+      reject(error instanceof Error ? error : new Error(String(error)));
+    }
+  });
 }
-
 
 function secureRemove(key) {
-
-    return new Promise((resolve) => {
-
-        if (!tg.SecureStorage) {
-
-            resolve(false);
-
-            return;
-        }
-
-        tg.SecureStorage.removeItem(
-            key,
-            () => resolve(true)
-        );
-    });
+  return new Promise((resolve, reject) => {
+    try {
+      tg.SecureStorage.removeItem(key, (error, success) => {
+        if (error) return reject(new Error(String(error)));
+        resolve(Boolean(success));
+      });
+    } catch (error) {
+      reject(error instanceof Error ? error : new Error(String(error)));
+    }
+  });
 }
 
+function makeMarker() {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  const suffix = Array.from(bytes).map(b => b.toString(16).padStart(2,"0")).join("");
+  return "OWNER-" + Date.now() + "-" + suffix;
+}
 
+// Same existing lab backend: account identification only; no marker or storage value is sent.
+async function getAccountFingerprint() {
+  try {
+    const response = await fetch("https://telegram-bug-lab.onrender.com/lab-check", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({initData:tg.initData,sessionToken:null})
+    });
+    const data = await response.json();
+    return data.current_telegram_account || "UNKNOWN";
+  } catch (_) {
+    return "UNAVAILABLE";
+  }
+}
 
-document.getElementById("write").onclick =
-    async () => {
+function renderSecure(value, canRestore) {
+  result.textContent =
+    "Supported:\ntrue\n\n" +
+    "Error:\nNONE\n\n" +
+    "Value:\n" + (value === null ? "null" : value) +
+    "\n\nCan restore:\n" + String(canRestore);
+}
+
+async function startup() {
+  if (!tg) {
+    document.getElementById("status").textContent = "Telegram.WebApp unavailable. Открой страницу внутри Telegram.";
+    accountEl.textContent = "NOT RUNNING INSIDE TELEGRAM";
+    return;
+  }
+
+  tg.ready();
+  tg.expand();
+  const user = tg.initDataUnsafe?.user || null;
+
+  document.getElementById("status").textContent =
+    "Telegram WebApp version: " + (tg.version || "UNKNOWN") +
+    "\nSecureStorage: " + (tg.SecureStorage ? "YES" : "NO") +
+    "\nTest key: " + KEY;
+
+  accountEl.textContent = displayUser(user);
+  log("INIT: Telegram WebApp detected.");
+  log("INIT: WebApp version=" + (tg.version || "UNKNOWN"));
+  log("INIT: current client user_id=" + String(user?.id ?? "UNKNOWN"));
+  log("INIT: SecureStorage=" + (tg.SecureStorage ? "AVAILABLE" : "UNAVAILABLE"));
+  log("INIT: no storage operation performed.");
+  log("INIT: no automatic WRITE.");
+}
+
+document.getElementById("write").onclick = async () => {
+  try {
+    ensureSecureStorage();
+    document.getElementById("write").disabled = true;
+
+    currentMarker = makeMarker();
+    markerEl.textContent = "In-memory marker:\n" + currentMarker;
+
+    const account = await getAccountFingerprint();
+    log("WRITE: account fingerprint=" + account);
+    log("WRITE: marker generated=" + currentMarker);
+    log("WRITE: SecureStorage.setItem(" + KEY + ", marker)");
+
+    const success = await secureSet(KEY, currentMarker);
+    log("WRITE: callback success=" + String(success));
 
     result.textContent =
-        "Writing...";
-
-    const account =
-        await getAccountFingerprint();
-
-    const marker =
-        "OWNER-" +
-        account +
-        "-" +
-        Date.now() +
-        "-" +
-        Math.random()
-            .toString(36)
-            .slice(2, 9);
-
-
-    localStorage.setItem(
-        KEY,
-        marker
-    );
-
-
-    const device =
-        await deviceSet(
-            KEY,
-            marker
-        );
-
-
-    const secure =
-        await secureSet(
-            KEY,
-            marker
-        );
-
-
-    result.textContent =
-`
-✅ WRITE COMPLETE
-
-Current Telegram account:
-${account}
-
-Test marker:
-${marker}
-
-Browser localStorage:
-WRITTEN
-
-DeviceStorage:
-${JSON.stringify(device, null, 2)}
-
-SecureStorage:
-${JSON.stringify(secure, null, 2)}
-
-
-NEXT:
-
-1. Закрой Mini App
-2. Переключись на аккаунт №2
-3. Открой тот же Mini App
-4. НЕ нажимай WRITE
-5. Нажми READ ONLY
-`;
+      "WRITE COMPLETE\n\nAccount fingerprint:\n" + account +
+      "\n\nMarker written:\n" + currentMarker +
+      "\n\nSecureStorage setItem success:\n" + String(success);
+  } catch (error) {
+    result.textContent = "WRITE ERROR:\n" + error.message;
+    log("WRITE ERROR: " + error.message);
+  } finally {
+    document.getElementById("write").disabled = false;
+  }
 };
 
+document.getElementById("read").onclick = async () => {
+  try {
+    ensureSecureStorage();
+    document.getElementById("read").disabled = true;
 
+    const account = await getAccountFingerprint();
+    log("READ: account fingerprint=" + account);
+    log("READ: NO WRITE operation.");
+    log("READ: SecureStorage.getItem(" + KEY + ")");
 
-document.getElementById("read").onclick =
-    async () => {
+    const secure = await secureGet(KEY);
+    renderSecure(secure.value, secure.canRestore);
 
-    result.textContent =
-        "Reading...";
+    log("READ: callback value=" + (secure.value === null ? "null" : secure.value));
+    log("READ: callback canRestore=" + String(secure.canRestore));
 
-    const account =
-        await getAccountFingerprint();
+    result.textContent += "\n\nCurrent account fingerprint:\n" + account +
+      "\n\nNo WRITE was executed by READ.";
 
-
-    const localValue =
-        localStorage.getItem(
-            KEY
-        );
-
-
-    const device =
-        await deviceGet(
-            KEY
-        );
-
-
-    const secure =
-        await secureGet(
-            KEY
-        );
-
-
-    result.textContent =
-`
-CURRENT TELEGRAM ACCOUNT:
-${account}
-
-
-======== localStorage ========
-
-${localValue ?? "NONE"}
-
-
-======== DeviceStorage ========
-
-Supported:
-${device.supported}
-
-Error:
-${device.error ?? "NONE"}
-
-Value:
-${device.value ?? "NONE"}
-
-
-======== SecureStorage ========
-
-Supported:
-${secure.supported}
-
-Error:
-${secure.error ?? "NONE"}
-
-Value:
-${secure.value ?? "NONE"}
-
-Can restore:
-${secure.canRestore}
-
-
-==============================
-
-ВАЖНО:
-
-Если DeviceStorage или SecureStorage
-содержит OWNER другого аккаунта,
-НЕ нажимай CLEAR.
-Сохрани этот результат.
-`;
+    if (currentMarker && secure.value === currentMarker) {
+      log("COMPARE: returned value matches this page instance marker.");
+    } else {
+      log("COMPARE: no local marker match available; inspect the raw value.");
+    }
+  } catch (error) {
+    result.textContent = "READ ERROR:\n" + error.message;
+    log("READ ERROR: " + error.message);
+  } finally {
+    document.getElementById("read").disabled = false;
+  }
 };
 
+document.getElementById("clear").onclick = async () => {
+  try {
+    ensureSecureStorage();
+    document.getElementById("clear").disabled = true;
 
+    log("CLEAR: SecureStorage.removeItem(" + KEY + ")");
+    const success = await secureRemove(KEY);
+    log("CLEAR: callback success=" + String(success));
 
-document.getElementById("clear").onclick =
-    async () => {
-
-    localStorage.removeItem(
-        KEY
-    );
-
-    await deviceRemove(
-        KEY
-    );
-
-    await secureRemove(
-        KEY
-    );
-
-    result.textContent =
-        "✅ Test markers cleared";
+    result.textContent = "CLEAR COMPLETE\n\nSecureStorage removeItem success:\n" + String(success);
+    currentMarker = null;
+    markerEl.textContent = "No marker generated in this page instance.";
+  } catch (error) {
+    result.textContent = "CLEAR ERROR:\n" + error.message;
+    log("CLEAR ERROR: " + error.message);
+  } finally {
+    document.getElementById("clear").disabled = false;
+  }
 };
 
+startup();
 </script>
-
 </body>
 </html>
